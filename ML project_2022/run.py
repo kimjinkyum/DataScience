@@ -12,6 +12,8 @@ from sklearn.metrics import classification_report
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
 
 
 def reduce_mem_usage(df, verbose=True):
@@ -100,6 +102,33 @@ def train_model(X_train, y_train, X_test, y_test, model):
     return confusion_matrix(y_test, y_pred), f1_score(y_test, y_pred, average='weighted'), reg
 
 
+def grid_search(X_train, y_train, model):
+    if model == "logistic":
+        reg = LogisticRegression()
+        # parameter grid
+        parameters = {
+            'penalty': ['l1', 'l2', 'none'],
+            'C': [100, 10, 1.0, 0.1, 0.01],
+            'solver': ['newton-cg', 'lbfgs', 'liblinear'],
+        }
+
+    if model == "nb":
+        reg = GaussianNB()
+
+    if model == "rf":
+        reg = RandomForestClassifier()
+        parameters = {'n_estimators': [10, 30, 100], 'max_depth': [6, 12, None],
+                      'min_samples_leaf': [2, 8], 'min_samples_split': [1, 8]}
+    clf = GridSearchCV(reg,  # model
+                       param_grid=parameters,  # hyperparameters
+                       scoring='f1_weighted',  # metric for scoring
+                       cv=5, n_jobs=4)  # number of folds
+    clf.fit(X_train, y_train)
+
+    print("Tuned Hyperparameters :", clf.best_params_)
+    print("Accuracy :", clf.best_score_)
+
+
 if __name__ == "__main__":
     # Get data
     df = pd.read_csv("data/Darknet.csv", error_bad_lines=False)
@@ -140,6 +169,10 @@ if __name__ == "__main__":
         ["Flow ID", "Timestamp", "Src IP", "Dst IP", "Flow Duration", "Flow Bytes/s", "Flow Packets/s", "Timestamp"],
         axis=1)
 
+    # 6) 카테고리컬 데이터
+    df_column_onehot = pd.get_dummies(X_fill[["Label.1", "Time"]])
+    df = pd.concat([df, df_column_onehot], axis=1)
+
     # Train Test split
     X_train, X_test, y_train, y_test = train_test_split(X_, y, test_size=0.2)
 
@@ -153,9 +186,11 @@ if __name__ == "__main__":
     max_c_m = ""
     # 모델 트레이닝
     for al in ["rf", "logistic", "SVM"]:
-        c_m, f1, reg = train_model(X_train_sale, y_train, X_test_scale, y_test, al)
-        if f1 > max_f1:
-            max_f1 = f1
+        c_m, f1, reg = train_model(X_train_fill_s, y_train, X_test_fill_s, y_test, al)
+        # Cross validation
+        score = (cross_val_score(reg_logist, X_test_fill_s, y, scoring='f1_weighted', cv=10))
+        if score > max_f1:
+            max_f1 = score
             max_reg = al
             max_c_m = c_m
 
@@ -169,3 +204,6 @@ if __name__ == "__main__":
     rus = RandomUnderSampler()
     smo = SMOTE()
     X_over, y_over = ros.fit_resample(X, y)
+
+    # Fine Turning
+    grid_search(X_train_fill_s, y_train, "logistic")
