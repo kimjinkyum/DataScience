@@ -9,6 +9,9 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
 from sklearn.metrics import classification_report
+from imblearn.over_sampling import RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import SMOTE
 
 
 def reduce_mem_usage(df, verbose=True):
@@ -160,4 +163,9 @@ if __name__ == "__main__":
     # Classification Report
     print(classification_report(y_test, max_reg.predict(X_test_fill_s)))
 
-
+    # Sampling : 동일하게 실행
+    # F1 score 낮은 이유 -> 데이터 불균형
+    ros = RandomOverSampler()
+    rus = RandomUnderSampler()
+    smo = SMOTE()
+    X_over, y_over = ros.fit_resample(X, y)
