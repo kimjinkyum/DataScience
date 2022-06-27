@@ -3,7 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import copy
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
+from sklearn.metrics import classification_report
 
 def reduce_mem_usage(df, verbose=True):
     numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
@@ -40,6 +45,7 @@ def reduce_mem_usage(df, verbose=True):
 def change_hour(x):
     return x["Timestamp"].split()[1].split(":")[0]
 
+
 def change_ip_class(x):
     parts = x.split(".")
     one_gram = int(parts[0])
@@ -54,6 +60,40 @@ def change_ip_class(x):
     else:
         class_ip = "E"
     return class_ip
+
+
+# data, strategy = "mean", "median"
+def fill_missing_value(data, strategy):
+    imputer = SimpleImputer(strategy=strategy)
+    data[["Protocol", 'Total Length of Fwd Packet']] = imputer.fit_transform(
+        data[["Protocol", 'Total Length of Fwd Packet']])
+    return data
+
+
+def scale_value(data, strategy):
+    if strategy == "standard":
+        std = StandardScaler()
+    if strategy == "normalize":
+        std = Normalizer()
+    if strategy == "minmax":
+        std = MinMaxScaler()
+    select_ = data.select_dtypes(exclude='object').columns
+    data[select_] = std.fit_transform(data.select_dtypes(exclude='object'))
+    return data
+
+
+def train_model(X_train, y_train, X_test, y_test, model):
+    if model == "logistic":
+        reg = LogisticRegression()
+
+    if model == "SVM":
+        reg = SVC()
+
+    if model == "rf":
+        reg = RandomForestClassifier()
+    reg.fit(X_train, y_train)
+    y_pred = reg.predict(X_test)
+    return confusion_matrix(y_test, y_pred), f1_score(y_test, y_pred, average='weighted'), reg
 
 
 if __name__ == "__main__":
@@ -90,8 +130,28 @@ if __name__ == "__main__":
     # 4) IP 값을 -> IP Class 값으로 (A, B, C, D, E class)
     df["Src IP class"] = df["Src IP"].apply(change_ip_class)
     df["Dst IP class"] = df["Dst IP"].apply(change_ip_class)
-    
+
     # 5) 사용하지 않은 column 삭제
     df = df.drop(
         ["Flow ID", "Timestamp", "Src IP", "Dst IP", "Flow Duration", "Flow Bytes/s", "Flow Packets/s", "Timestamp"],
         axis=1)
+
+    # Train Test split
+    X_train, X_test, y_train, y_test = train_test_split(X_, y, test_size=0.2)
+
+    X_train_fill = fill_missing_value(X_train, "mean")
+    X_test_fill = fill_missing_value(X_test, "mean")
+    X_train_fill_s = scale_value(X_train, "standard")
+    X_test_fill_s = scale_value(X_test, "standard")
+    
+    max_f1 = 0
+    max_reg = ""
+    max_c_m = ""
+    # 모델 트레이닝
+    for al in ["rf", "logistic", "SVM"]:
+        c_m, f1, reg = train_model(X_train_sale, y_train, X_test_scale, y_test, al)
+        if f1 > max_f1:
+            max_f1 = f1
+            max_reg = al
+            max_c_m = c_m
+
