@@ -10,6 +10,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import f1_score, confusion_matrix, accuracy_score
 from sklearn.metrics import classification_report
 
+
 def reduce_mem_usage(df, verbose=True):
     numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
     start_mem = df.memory_usage().sum() / 1024 ** 2
@@ -143,7 +144,7 @@ if __name__ == "__main__":
     X_test_fill = fill_missing_value(X_test, "mean")
     X_train_fill_s = scale_value(X_train, "standard")
     X_test_fill_s = scale_value(X_test, "standard")
-    
+
     max_f1 = 0
     max_reg = ""
     max_c_m = ""
@@ -154,4 +155,9 @@ if __name__ == "__main__":
             max_f1 = f1
             max_reg = al
             max_c_m = c_m
+
+    # 평가
+    # Classification Report
+    print(classification_report(y_test, max_reg.predict(X_test_fill_s)))
+
 
